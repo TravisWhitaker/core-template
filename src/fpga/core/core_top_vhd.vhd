@@ -216,7 +216,7 @@ cont4_joy : in std_logic_vector(31 downto 0);
 cont1_trig : in std_logic_vector(15 downto 0);
 cont2_trig : in std_logic_vector(15 downto 0);
 cont3_trig : in std_logic_vector(15 downto 0);
-cont4_tri : in std_logic_vector(15 downto 0)
+cont4_trig : in std_logic_vector(15 downto 0)
 
 );
 
@@ -311,6 +311,8 @@ component core_bridge_cmd port
 );
 end component;
 
+signal bridge_endian_little_int : std_logic;
+
 component synch_3 generic
 (
     WIDTH : natural := 1
@@ -325,7 +327,7 @@ port
 );
 end component;
 
-component ml_pllbase port
+component mf_pllbase port
 (
     refclk : in std_logic;
     rst : in std_logic;
@@ -444,7 +446,7 @@ signal vidout_hs, vidout_hs_1 : std_logic;
 
 -- audio gen constants/sigs
 
-constant CYCLE_48HKZ : natural := 245760;
+constant CYCLE_48KHZ : natural := 245760;
 
 signal audgen_accum : unsigned(21 downto 0);
 signal audgen_mclk : std_logic;
@@ -459,7 +461,6 @@ signal audgen_dac : std_logic;
 
 -- pll sigs
 
-
 signal clk_core_12288 : std_logic;
 signal clk_core_12288_90deg : std_logic;
 signal pll_core_locked : std_logic;
@@ -473,7 +474,8 @@ port_ir_tx <= '0';
 port_ir_rx_disable <= '1';
 
 -- bridge endianness
-bridge_endian_little <= '0';
+bridge_endian_little_int <= '0';
+bridge_endian_little <= bridge_endian_little_int;
 
 -- cart is unused, so set all level translators accordingly
 -- directions are 0:IN, 1:OUT
@@ -573,7 +575,7 @@ icb : core_bridge_cmd port map (
     clk => clk_74a,
     reset_n => reset_n,
 
-    bridge_endian_little => bridge_endian_little,
+    bridge_endian_little => bridge_endian_little_int,
     bridge_addr => bridge_addr,
     bridge_rd => bridge_rd,
     bridge_rd_data => cmd_bridge_rd_data,
@@ -672,8 +674,8 @@ begin
 
 if reset_n = '0'
 then
-  x_count <= 0;
-  y_count <= 0;
+  x_count <= (others => '0');
+  y_count <= (others => '0');
 elsif rising_edge(clk_core_12288)
 then
   vidout_de <= '0';
@@ -688,12 +690,12 @@ then
   x_count <= x_count + 1;
   if x_count = (VID_H_TOTAL-1)
   then
-    x_count <= 0;
+    x_count <= (others => '0');
     
     y_count <= y_count + 1;
     if y_count = (VID_V_TOTAL-1)
     then
-      y_count <= 0;
+      y_count <= (others => '0');
     end if;
   end if;
 
@@ -709,7 +711,7 @@ then
 -- we want HS to occur a bit after VS, not on the same cycle
   if x_count = 3
   then
-    vidout_hs <= 1;
+    vidout_hs <= '1';
   end if;
 
 -- inactive areas are black:
@@ -737,7 +739,7 @@ audio_mclk <= audgen_mclk;
 audio_dac <= audgen_dac;
 audio_lrck <= audgen_lrck;
 
-audgen_sclk <= to_std_logic(aud_mclk_divider(1));
+audgen_sclk <= aud_mclk_divider(1);
 
 aud_mclk : process(clk_74a) is
 begin
@@ -781,12 +783,12 @@ s01 : synch_3 generic map
 )
 port map
 (
-    input => pll_core_locked,
-    output => pll_core_locked_s,
+    i(0) => pll_core_locked,
+    o(0) => pll_core_locked_s,
     clk => clk_74a
 );
 
-mp1 : work.mf_pllbase port map
+mp1 : mf_pllbase port map
 (
     refclk => clk_74a,
     rst => '0',
