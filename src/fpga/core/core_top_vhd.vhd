@@ -54,7 +54,7 @@ cart_tran_pin31_dir : out std_logic;
 -- infrared
 port_ir_rx : in std_logic;
 port_ir_tx : out std_logic;
-port_ir_rx_disable, : out std_logic;
+port_ir_rx_disable : out std_logic;
 
 -- GBA link port
 port_tran_si : inout std_logic;
@@ -216,11 +216,11 @@ cont4_joy : in std_logic_vector(31 downto 0);
 cont1_trig : in std_logic_vector(15 downto 0);
 cont2_trig : in std_logic_vector(15 downto 0);
 cont3_trig : in std_logic_vector(15 downto 0);
-cont4_tri : in std_logic_vector(15 downto 0);
+cont4_tri : in std_logic_vector(15 downto 0)
 
 );
 
-end entity;
+end core_top_vhd;
 
 architecture rtl of core_top_vhd is
 
@@ -418,7 +418,7 @@ cram1_lb_n <= '1';
 dram_a <= (others => '0');
 dram_ba <= (others => '0');
 dram_dq <= (others => 'Z');
-dram_dqm <= '0';
+dram_dqm <= (others => '0');
 dram_clk <= '0';
 dram_cke <= '0';
 dram_ras_n <= '1';
@@ -450,11 +450,11 @@ status_boot_done <= pll_core_locked_s;
 status_setup_done <= pll_core_locked_s; -- rising edge triggers a target command
 status_running <= reset_n; -- we are running as soon as reset_n goes high
 
-dataslot_requestread_ack <= 1;
-dataslot_requestread_ok <= 1;
+dataslot_requestread_ack <= '1';
+dataslot_requestread_ok <= '1';
 
-dataslot_requestwrite_ack <= 1;
-dataslot_requestwrite_ok <= 1;
+dataslot_requestwrite_ack <= '1';
+dataslot_requestwrite_ok <= '1';
 
 icb : entity work.core_bridge_cmd port map (
     clk => clk_74a,
@@ -560,7 +560,7 @@ begin
 if reset_n = '0'
 then
   x_count <= 0;
-  y_count <- 0;
+  y_count <= 0;
 elsif rising_edge(clk_core_12288)
 then
   vidout_de <= '0';
@@ -609,7 +609,7 @@ then
       -- data enable
       vidout_de <= '1';
 
-      vidout_rgb <= "111111110101010100001111"
+      vidout_rgb <= "111111110101010100001111";
     end if;
   end if;
 
@@ -641,7 +641,7 @@ end process;
 
 aud_sclk : process(audgen_mclk) is
 begin
-if rising(edge(audgen_mclk)
+if rising_edge(audgen_mclk)
 then
   aud_mclk_divider <= aud_mclk_divider + 1;
 end if;
@@ -653,9 +653,9 @@ if rising_edge(audgen_sclk)
 then
   audgen_dac <= '0';
   audgen_lrck_cnt <= audgen_lrck_cnt + 1;
-  if audgen_lrck_cnt == 31
+  if audgen_lrck_cnt = 31
   then
-    audgen_lrck <= not audgen_lrck
+    audgen_lrck <= not audgen_lrck;
   end if;
 end if;
 end process;
@@ -679,4 +679,4 @@ mp1 : entity work.mf_pllbase port map
 );
 
 
-end architecture;
+end rtl;

@@ -346,7 +346,7 @@ io_bridge_peripheral ibs (
 ///////////////////////////////////////////////////
 // instantiate the user core top-level
 
-core_top ic (
+core_top_vhd ic (
 
     // physical connections 
     //
