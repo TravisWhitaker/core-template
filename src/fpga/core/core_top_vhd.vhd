@@ -224,6 +224,119 @@ end core_top_vhd;
 
 architecture rtl of core_top_vhd is
 
+-- Quartus doesn't seem to support direct entity instantiation of Verilog
+-- components...
+component core_bridge_cmd port
+(
+
+    clk : in std_logic;
+    reset_n : out std_logic;
+
+    bridge_endian_little : in std_logic;
+    bridge_addr : in std_logic_vector(31 downto 0);
+    bridge_rd : in std_logic;
+    bridge_rd_data : out std_logic_vector(31 downto 0);
+    bridge_wr : in std_logic;
+    bridge_wr_data : in std_logic_vector(31 downto 0);
+
+    -- all these signals should be synchronous to clk
+    -- add synchronizers if these need to be used in other clock domains
+    status_boot_done : in std_logic;           -- assert when PLLs lock and logic is ready
+    status_setup_done : in std_logic;          -- assert when core is happy with what's been loaded into it
+    status_running : in std_logic;             -- assert when pocket's taken core out of reset and is running
+
+    dataslot_requestread : out std_logic;
+    dataslot_requestread_id : out std_logic_vector(15 downto 0);
+    dataslot_requestread_ack : in std_logic;
+    dataslot_requestread_ok : in std_logic;
+
+    dataslot_requestwrite : out std_logic;
+    dataslot_requestwrite_id : out std_logic_vector(15 downto 0);
+    dataslot_requestwrite_size : out std_logic_vector(31 downto 0);
+    dataslot_requestwrite_ack : in std_logic;
+    dataslot_requestwrite_ok : in std_logic;
+
+    dataslot_update : out std_logic;
+    dataslot_update_id : out std_logic_vector(15 downto 0);
+    dataslot_update_size : out std_logic_vector(31 downto 0);
+
+    dataslot_allcomplete : out std_logic;
+
+    rtc_epoch_seconds : out std_logic_vector(31 downto 0);
+    rtc_date_bcd : out std_logic_vector(31 downto 0);
+    rtc_time_bcd : out std_logic_vector(31 downto 0);
+    rtc_valid : out std_logic;
+
+    savestate_supported : in std_logic;
+    savestate_addr : in std_logic_vector(31 downto 0);
+    savestate_size : in std_logic_vector(31 downto 0);
+    savestate_maxloadsize : in std_logic_vector(31 downto 0);
+
+    osnotify_inmenu : out std_logic;
+
+    savestate_start : out std_logic;        -- core should detect rising edge on this;
+    savestate_start_ack : in std_logic;    -- and then assert ack for at least 1 cycle
+    savestate_start_busy : in std_logic;   -- assert constantly while in progress after ack
+    savestate_start_ok : in std_logic;     -- assert continuously when done; and clear when new process is started
+    savestate_start_err : in std_logic;    -- assert continuously on error; and clear when new process is started
+
+    savestate_load : out std_logic;
+    savestate_load_ack : in std_logic;
+    savestate_load_busy : in std_logic;
+    savestate_load_ok : in std_logic;
+    savestate_load_err : in std_logic;
+
+    target_dataslot_read : in std_logic;       -- rising edge triggered
+    target_dataslot_write : in std_logic;
+    target_dataslot_getfile : in std_logic;
+    target_dataslot_openfile : in std_logic;
+
+    target_dataslot_ack : out std_logic;        -- asserted upon command start until completion
+    target_dataslot_done : out std_logic;       -- asserted upon command finish until next command is issued    
+    target_dataslot_err : out std_logic_vector(2 downto 0);        -- contains result of command execution. zero is OK
+
+    target_dataslot_id : in std_logic_vector(15 downto 0);         -- parameters for each of the read-reload-write commands
+    target_dataslot_slotoffset : in std_logic_vector(31 downto 0);
+    target_dataslot_bridgeaddr : in std_logic_vector(31 downto 0);
+    target_dataslot_length : in std_logic_vector(31 downto 0);
+
+    target_buffer_param_struct : in std_logic_vector(31 downto 0); -- bus address of the memory region APF will fetch additional parameter struct from
+    target_buffer_resp_struct : in std_logic_vector(31 downto 0);  -- bus address of the memory region APF will write its response struct to
+
+    datatable_addr : in std_logic_vector(9 downto 0);
+    datatable_wren : in std_logic;
+    datatable_data : in std_logic_vector(31 downto 0);
+    datatable_q : out std_logic_vector(31 downto 0)
+
+);
+end component;
+
+component synch_3 generic
+(
+    WIDTH : natural := 1
+);
+port
+(
+    i    : in  std_logic_vector(WIDTH-1 downto 0);
+    o    : out std_logic_vector(WIDTH-1 downto 0);
+    clk  : in  std_logic;
+    rise : out std_logic;
+    fall : out std_logic
+);
+end component;
+
+component ml_pllbase port
+(
+    refclk : in std_logic;
+    rst : in std_logic;
+    outclk_0 : out std_logic;
+    outclk_1 : out std_logic;
+    outclk_2 : out std_logic;
+    outclk_3 : out std_logic;
+    outclk_4 : out std_logic;
+    locked : out std_logic
+);
+end component;
 -- host-target command handler
 --
 signal reset_n : std_logic; -- driven by host commands, can be used as core-wide reset
@@ -456,7 +569,7 @@ dataslot_requestread_ok <= '1';
 dataslot_requestwrite_ack <= '1';
 dataslot_requestwrite_ok <= '1';
 
-icb : entity work.core_bridge_cmd port map (
+icb : core_bridge_cmd port map (
     clk => clk_74a,
     reset_n => reset_n,
 
@@ -662,14 +775,18 @@ end process;
 
 -- PLL
 
-s01 : entity work.synch_3 port map
+s01 : synch_3 generic map
+(
+    WIDTH => 1
+)
+port map
 (
     input => pll_core_locked,
     output => pll_core_locked_s,
     clk => clk_74a
 );
 
-mp1 : entity work.mf_pllbase port map
+mp1 : work.mf_pllbase port map
 (
     refclk => clk_74a,
     rst => '0',
@@ -677,6 +794,5 @@ mp1 : entity work.mf_pllbase port map
     outclk_1 => clk_core_12288_90deg,
     locked => pll_core_locked
 );
-
 
 end rtl;
