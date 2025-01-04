@@ -436,6 +436,9 @@ signal y_count : unsigned(9 downto 0);
 -- signal visible_y : std_logic_vector(9 downto 0); = y_count - VID_V_BPORCH;
 
 signal vidout_rgb : std_logic_vector(23 downto 0);
+signal vidout_r : unsigned(7 downto 0);
+signal vidout_g : unsigned(7 downto 0);
+signal vidout_b : unsigned(7 downto 0);
 signal vidout_de, vidout_de_1 : std_logic;
 signal vidout_skip : std_logic;
 signal vidout_vs : std_logic;
@@ -723,8 +726,14 @@ then
     then
       -- data enable
       vidout_de <= '1';
+		
+		vidout_b <= frame_count(7 downto 0);
+		vidout_g <= frame_count(10 downto 3);
+		vidout_r <= frame_count(13 downto 6);
 
-      vidout_rgb <= "111111110101010100001111";
+		vidout_rgb(7 downto 0) <= std_logic_vector(vidout_b);
+		vidout_rgb(15 downto 8) <= std_logic_vector(vidout_g);
+		vidout_rgb(23 downto 16) <= std_logic_vector(vidout_r);
     end if;
   end if;
 
