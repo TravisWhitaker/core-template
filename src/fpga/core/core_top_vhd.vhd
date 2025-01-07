@@ -313,20 +313,6 @@ end component;
 
 signal bridge_endian_little_int : std_logic;
 
-component synch_3 generic
-(
-    WIDTH : natural := 1
-);
-port
-(
-    i    : in  std_logic_vector(WIDTH-1 downto 0);
-    o    : out std_logic_vector(WIDTH-1 downto 0);
-    clk  : in  std_logic;
-    rise : out std_logic;
-    fall : out std_logic
-);
-end component;
-
 component mf_pllbase port
 (
     refclk : in std_logic;
@@ -786,7 +772,7 @@ end process;
 
 -- PLL
 
-s01 : synch_3 generic map
+s01 : entity work.sync3 generic map
 (
     WIDTH => 1
 )
