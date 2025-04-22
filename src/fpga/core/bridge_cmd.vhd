@@ -21,7 +21,7 @@ bridge_write_data : out std_logic_vector(31 downto 0);
 
 status_booted : in std_logic;
 status_setup_done : in std_logic;
-status_running : in std_logic;
+status_running : in std_logic
 
 );
 
@@ -123,8 +123,8 @@ then
   when x"f80000" =>
     case bridge_addr(7 downto 0) is
     when x"00" => bridge_read_data <= host_0;
-    when x"04" => bridge_read_data <= x"00000020"
-    when x"08" => bridge_read_data <= x"00000040"
+    when x"04" => bridge_read_data <= x"00000020";
+    when x"08" => bridge_read_data <= x"00000040";
     when x"40" => bridge_read_data <= host_40;
     when x"44" => bridge_read_data <= host_44;
     when x"48" => bridge_read_data <= host_48;
@@ -133,8 +133,8 @@ then
   when x"f80010" =>
     case bridge_addr(7 downto 0) is
     when x"00" => bridge_read_data <= target_0;
-    when x"04" => bridge_read_data <= x"00000020"
-    when x"08" => bridge_read_data <= x"00000040"
+    when x"04" => bridge_read_data <= x"00000020";
+    when x"08" => bridge_read_data <= x"00000040";
     when x"20" => bridge_read_data <= target_20;
     when x"24" => bridge_read_data <= target_24;
     when x"28" => bridge_read_data <= target_28;
@@ -160,7 +160,7 @@ when host_parse =>
   case host_cmd is
   when x"0000" =>
     -- request status
-    with std_logic_vector'(status_booted & status_setup_done & status_running) select
+    with status_booted & status_setup_done & status_running select
       host_result_code <= x"0001" when "000",
                           x"0002" when "100",
                           x"0003" when "110",
