@@ -774,7 +774,7 @@ end process;
 
 s01 : entity work.sync3 generic map
 (
-    WIDTH => 1
+    width => 1
 )
 port map
 (
