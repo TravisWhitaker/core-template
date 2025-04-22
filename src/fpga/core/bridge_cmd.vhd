@@ -17,7 +17,7 @@ bridge_addr : in std_logic_vector(31 downto 0);
 bridge_read : in std_logic;
 bridge_read_data : out std_logic_vector(31 downto 0);
 bridge_write : in std_logic;
-bridge_write_data : out std_logic_vector(31 downto 0);
+bridge_write_data : in std_logic_vector(31 downto 0);
 
 status_booted : in std_logic;
 status_setup_done : in std_logic;
@@ -103,6 +103,7 @@ then
     when x"24" => host_24 <= bridge_write_data;
     when x"28" => host_28 <= bridge_write_data;
     when x"2c" => host_2c <= bridge_write_data;
+	 when others => null;
     end case;
   when x"f80010" =>
     -- host is writing to target region
@@ -112,10 +113,12 @@ then
     when x"44" => target_44 <= bridge_write_data;
     when x"48" => target_48 <= bridge_write_data;
     when x"4c" => target_4c <= bridge_write_data;
+	 when others => null;
     end case;
   when x"f80020" =>
     -- host is doing data slot things, ignore for now
     null;
+  when others => null;
   end case;
 elsif bridge_read = '1'
 then
@@ -129,6 +132,7 @@ then
     when x"44" => bridge_read_data <= host_44;
     when x"48" => bridge_read_data <= host_48;
     when x"4c" => bridge_read_data <= host_4c;
+	 when others => null;
     end case;
   when x"f80010" =>
     case bridge_addr(7 downto 0) is
@@ -139,10 +143,12 @@ then
     when x"24" => bridge_read_data <= target_24;
     when x"28" => bridge_read_data <= target_28;
     when x"2c" => bridge_read_data <= target_2c;
+	 when others => null;
     end case;
   when x"f80020" =>
     -- host is doing data slot things, ignore for now
     null;
+  when others => null;
   end case;
 end if;
 
@@ -168,9 +174,9 @@ when host_parse =>
       if status_setup_done = '1'
       then
         host_result_code <= x"0003";
-        if status_setup_running = '1'
+        if status_running = '1'
         then
-          host_result_code <= x"0004"
+          host_result_code <= x"0004";
         end if;
       end if;
     end if;
@@ -184,8 +190,7 @@ when host_parse =>
     -- reset exit
     reset_n <= '1';
     host_result_code <= x"0000";
-    host_state <= host_done:
-  end case;
+    host_state <= host_done;
   when x"0080" =>
     -- data slot request read, nothing for now
     host_result_code <= x"0000";
@@ -224,11 +229,15 @@ when host_parse =>
     -- menu is open, nothing for now
     host_result_code <= x"0000";
     host_state <= host_done;
+  when others =>
+    -- unknown command
+    host_result_code <= x"ffff";
+    host_state <= host_done;
   end case;
 when host_work =>
   host_state <= host_idle;
 when host_done =>
-  host_0 <= x"4f4b" & host_result_code
+  host_0 <= x"4f4b" & host_result_code;
   host_state <= host_idle;
 end case;
 
