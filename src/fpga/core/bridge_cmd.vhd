@@ -249,5 +249,7 @@ end case;
 -- end if clock edge
 end if;
 
+end process bridge_io;
+
 
 end rtl;
