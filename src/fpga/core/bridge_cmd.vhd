@@ -160,12 +160,20 @@ when host_parse =>
   case host_cmd is
   when x"0000" =>
     -- request status
-    with status_booted & status_setup_done & status_running select
-      host_result_code <= x"0001" when "000",
-                          x"0002" when "100",
-                          x"0003" when "110",
-                          x"0004" when "111",
-                          x"0000" when others;
+    -- gross, refactor:
+    host_result_code <= x"0001";
+    if status_booted = '1'
+    then
+      host_result_code <= x"0002";
+      if status_setup_done = '1'
+      then
+        host_result_code <= x"0003";
+        if status_setup_running = '1'
+        then
+          host_result_code <= x"0004"
+        end if;
+      end if;
+    end if;
     host_state <= host_done;
   when x"0010" =>
     -- reset enter
