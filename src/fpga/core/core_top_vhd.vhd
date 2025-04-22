@@ -224,95 +224,6 @@ end core_top_vhd;
 
 architecture rtl of core_top_vhd is
 
--- Quartus doesn't seem to support direct entity instantiation of Verilog
--- components...
-component core_bridge_cmd port
-(
-
-    clk : in std_logic;
-    reset_n : out std_logic;
-
-    bridge_endian_little : in std_logic;
-    bridge_addr : in std_logic_vector(31 downto 0);
-    bridge_rd : in std_logic;
-    bridge_rd_data : out std_logic_vector(31 downto 0);
-    bridge_wr : in std_logic;
-    bridge_wr_data : in std_logic_vector(31 downto 0);
-
-    -- all these signals should be synchronous to clk
-    -- add synchronizers if these need to be used in other clock domains
-    status_boot_done : in std_logic;           -- assert when PLLs lock and logic is ready
-    status_setup_done : in std_logic;          -- assert when core is happy with what's been loaded into it
-    status_running : in std_logic;             -- assert when pocket's taken core out of reset and is running
-
-    dataslot_requestread : out std_logic;
-    dataslot_requestread_id : out std_logic_vector(15 downto 0);
-    dataslot_requestread_ack : in std_logic;
-    dataslot_requestread_ok : in std_logic;
-
-    dataslot_requestwrite : out std_logic;
-    dataslot_requestwrite_id : out std_logic_vector(15 downto 0);
-    dataslot_requestwrite_size : out std_logic_vector(31 downto 0);
-    dataslot_requestwrite_ack : in std_logic;
-    dataslot_requestwrite_ok : in std_logic;
-
-    dataslot_update : out std_logic;
-    dataslot_update_id : out std_logic_vector(15 downto 0);
-    dataslot_update_size : out std_logic_vector(31 downto 0);
-
-    dataslot_allcomplete : out std_logic;
-
-    rtc_epoch_seconds : out std_logic_vector(31 downto 0);
-    rtc_date_bcd : out std_logic_vector(31 downto 0);
-    rtc_time_bcd : out std_logic_vector(31 downto 0);
-    rtc_valid : out std_logic;
-
-    savestate_supported : in std_logic;
-    savestate_addr : in std_logic_vector(31 downto 0);
-    savestate_size : in std_logic_vector(31 downto 0);
-    savestate_maxloadsize : in std_logic_vector(31 downto 0);
-
-    osnotify_inmenu : out std_logic;
-
-    savestate_start : out std_logic;        -- core should detect rising edge on this;
-    savestate_start_ack : in std_logic;    -- and then assert ack for at least 1 cycle
-    savestate_start_busy : in std_logic;   -- assert constantly while in progress after ack
-    savestate_start_ok : in std_logic;     -- assert continuously when done; and clear when new process is started
-    savestate_start_err : in std_logic;    -- assert continuously on error; and clear when new process is started
-
-    savestate_load : out std_logic;
-    savestate_load_ack : in std_logic;
-    savestate_load_busy : in std_logic;
-    savestate_load_ok : in std_logic;
-    savestate_load_err : in std_logic;
-
-    target_dataslot_read : in std_logic;       -- rising edge triggered
-    target_dataslot_write : in std_logic;
-    target_dataslot_getfile : in std_logic;
-    target_dataslot_openfile : in std_logic;
-
-    target_dataslot_ack : out std_logic;        -- asserted upon command start until completion
-    target_dataslot_done : out std_logic;       -- asserted upon command finish until next command is issued    
-    target_dataslot_err : out std_logic_vector(2 downto 0);        -- contains result of command execution. zero is OK
-
-    target_dataslot_id : in std_logic_vector(15 downto 0);         -- parameters for each of the read-reload-write commands
-    target_dataslot_slotoffset : in std_logic_vector(31 downto 0);
-    target_dataslot_bridgeaddr : in std_logic_vector(31 downto 0);
-    target_dataslot_length : in std_logic_vector(31 downto 0);
-
-    target_buffer_param_struct : in std_logic_vector(31 downto 0); -- bus address of the memory region APF will fetch additional parameter struct from
-    target_buffer_resp_struct : in std_logic_vector(31 downto 0);  -- bus address of the memory region APF will write its response struct to
-
-    datatable_addr : in std_logic_vector(9 downto 0);
-    datatable_wren : in std_logic;
-    datatable_data : in std_logic_vector(31 downto 0);
-    datatable_q : out std_logic_vector(31 downto 0)
-
-);
-end component;
-
-signal bridge_endian_little_int : std_logic;
-
 component mf_pllbase port
 (
     refclk : in std_logic;
@@ -325,6 +236,7 @@ component mf_pllbase port
     locked : out std_logic
 );
 end component;
+
 -- host-target command handler
 --
 signal reset_n : std_logic; -- driven by host commands, can be used as core-wide reset
@@ -335,73 +247,6 @@ signal cmd_bridge_rd_data : std_logic_vector(31 downto 0);
 signal status_boot_done : std_logic; 
 signal status_setup_done : std_logic; -- rising edge triggers a target command
 signal status_running : std_logic; -- we are running as soon as reset_n goes high
-
-signal dataslot_requestread : std_logic;
-signal dataslot_requestread_id : std_logic_vector(15 downto 0);
-signal dataslot_requestread_ack : std_logic;
-signal dataslot_requestread_ok : std_logic;
-
-signal dataslot_requestwrite : std_logic;
-signal dataslot_requestwrite_id : std_logic_vector(15 downto 0);
-signal dataslot_requestwrite_size : std_logic_vector(31 downto 0);
-signal dataslot_requestwrite_ack : std_logic;
-signal dataslot_requestwrite_ok : std_logic;
-
-signal dataslot_update : std_logic;
-signal dataslot_update_id : std_logic_vector(15 downto 0);
-signal dataslot_update_size : std_logic_vector(31 downto 0);
-    
-signal dataslot_allcomplete : std_logic;
-
-signal rtc_epoch_seconds : std_logic_vector(31 downto 0);
-signal rtc_date_bcd : std_logic_vector(31 downto 0);
-signal rtc_time_bcd : std_logic_vector(31 downto 0);
-signal rtc_valid : std_logic;
-
-signal savestate_supported : std_logic;
-signal savestate_addr : std_logic_vector(31 downto 0);
-signal savestate_size : std_logic_vector(31 downto 0);
-signal savestate_maxloadsize : std_logic_vector(31 downto 0);
-
-signal savestate_start : std_logic;
-signal savestate_start_ack : std_logic;
-signal savestate_start_busy : std_logic;
-signal savestate_start_ok : std_logic;
-signal savestate_start_err : std_logic;
-
-signal savestate_load : std_logic;
-signal savestate_load_ack : std_logic;
-signal savestate_load_busy : std_logic;
-signal savestate_load_ok : std_logic;
-signal savestate_load_err : std_logic;
-    
-signal osnotify_inmenu : std_logic;
-
--- bridge target commands
--- synchronous to clk_74a
-signal target_dataslot_read : std_logic;       
-signal target_dataslot_write : std_logic;
-signal target_dataslot_getfile : std_logic;  -- require additional param-resp structs to be mapped
-signal target_dataslot_openfile : std_logic; -- require additional param-resp structs to be mapped
-    
-signal target_dataslot_ack : std_logic;        
-signal target_dataslot_done : std_logic;
-signal target_dataslot_err : std_logic_vector(2 downto 0);
-
-signal target_dataslot_id : std_logic_vector(15 downto 0);
-signal target_dataslot_slotoffset : std_logic_vector(31 downto 0);
-signal target_dataslot_bridgeaddr : std_logic_vector(31 downto 0);
-signal target_dataslot_length : std_logic_vector(31 downto 0);
-    
-signal target_buffer_param_struct : std_logic_vector(31 downto 0); -- to be mapped-implemented when using some Target commands
-signal target_buffer_resp_struct : std_logic_vector(31 downto 0);  -- to be mapped-implemented when using some Target commands
-
--- bridge data slot access
--- synchronous to clk_74a
-signal datatable_addr : std_logic_vector(9 downto 0);
-signal datatable_wren : std_logic;
-signal datatable_data : std_logic_vector(31 downto 0);
-signal datatable_q : std_logic_vector(31 downto 0);
 
 -- video constants
 constant VID_V_BPORCH : natural := 10;
@@ -463,8 +308,7 @@ port_ir_tx <= '0';
 port_ir_rx_disable <= '1';
 
 -- bridge endianness
-bridge_endian_little_int <= '0';
-bridge_endian_little <= bridge_endian_little_int;
+bridge_endian_little <= '0';
 
 -- cart is unused, so set all level translators accordingly
 -- directions are 0:IN, 1:OUT
@@ -554,89 +398,20 @@ status_boot_done <= pll_core_locked_s;
 status_setup_done <= pll_core_locked_s; -- rising edge triggers a target command
 status_running <= reset_n; -- we are running as soon as reset_n goes high
 
-dataslot_requestread_ack <= '1';
-dataslot_requestread_ok <= '1';
-
-dataslot_requestwrite_ack <= '1';
-dataslot_requestwrite_ok <= '1';
-
-icb : core_bridge_cmd port map (
+icb : entity work.bridge_cmd port map
+(
     clk => clk_74a,
     reset_n => reset_n,
 
-    bridge_endian_little => bridge_endian_little_int,
     bridge_addr => bridge_addr,
-    bridge_rd => bridge_rd,
-    bridge_rd_data => cmd_bridge_rd_data,
-    bridge_wr => bridge_wr,
-    bridge_wr_data => bridge_wr_data,
-    
-    status_boot_done => status_boot_done,
+    bridge_read => bridge_rd,
+    bridge_read_data => cmd_bridge_rd_data,
+    bridge_write => bridge_wr,
+    bridge_write_data => bridge_wr_data,
+
+    status_booted => status_boot_done,
     status_setup_done => status_setup_done,
-    status_running => status_running,
-
-    dataslot_requestread => dataslot_requestread,
-    dataslot_requestread_id => dataslot_requestread_id,
-    dataslot_requestread_ack => dataslot_requestread_ack,
-    dataslot_requestread_ok => dataslot_requestread_ok,
-
-    dataslot_requestwrite => dataslot_requestwrite,
-    dataslot_requestwrite_id => dataslot_requestwrite_id,
-    dataslot_requestwrite_size => dataslot_requestwrite_size,
-    dataslot_requestwrite_ack => dataslot_requestwrite_ack,
-    dataslot_requestwrite_ok => dataslot_requestwrite_ok,
-
-    dataslot_update => dataslot_update,
-    dataslot_update_id => dataslot_update_id,
-    dataslot_update_size => dataslot_update_size,
-    
-    dataslot_allcomplete => dataslot_allcomplete,
-
-    rtc_epoch_seconds => rtc_epoch_seconds,
-    rtc_date_bcd => rtc_date_bcd,
-    rtc_time_bcd => rtc_time_bcd,
-    rtc_valid => rtc_valid,
-    
-    savestate_supported => savestate_supported,
-    savestate_addr => savestate_addr,
-    savestate_size => savestate_size,
-    savestate_maxloadsize => savestate_maxloadsize,
-
-    savestate_start => savestate_start,
-    savestate_start_ack => savestate_start_ack,
-    savestate_start_busy => savestate_start_busy,
-    savestate_start_ok => savestate_start_ok,
-    savestate_start_err => savestate_start_err,
-
-    savestate_load => savestate_load,
-    savestate_load_ack => savestate_load_ack,
-    savestate_load_busy => savestate_load_busy,
-    savestate_load_ok => savestate_load_ok,
-    savestate_load_err => savestate_load_err,
-
-    osnotify_inmenu => osnotify_inmenu,
-    
-    target_dataslot_read => target_dataslot_read,
-    target_dataslot_write => target_dataslot_write,
-    target_dataslot_getfile => target_dataslot_getfile,
-    target_dataslot_openfile => target_dataslot_openfile,
-    
-    target_dataslot_ack => target_dataslot_ack,
-    target_dataslot_done => target_dataslot_done,
-    target_dataslot_err => target_dataslot_err,
-
-    target_dataslot_id => target_dataslot_id,
-    target_dataslot_slotoffset => target_dataslot_slotoffset,
-    target_dataslot_bridgeaddr => target_dataslot_bridgeaddr,
-    target_dataslot_length => target_dataslot_length,
-
-    target_buffer_param_struct => target_buffer_param_struct,
-    target_buffer_resp_struct => target_buffer_resp_struct,
-    
-    datatable_addr => datatable_addr,
-    datatable_wren => datatable_wren,
-    datatable_data => datatable_data,
-    datatable_q => datatable_q
+    status_running => status_running
 );
 
 -- video generation
